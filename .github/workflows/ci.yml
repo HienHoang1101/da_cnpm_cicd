@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Run tests for all services
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Find and run tests in every package
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Locating package.json files..."
+          PACKAGES=$(git ls-files "**/package.json" | tr '\n' ' ')
+          echo "Found packages: $PACKAGES"
+          if [ -z "$PACKAGES" ]; then
+            echo "No package.json files found. Nothing to test."
+            exit 0
+          fi
+          for pkg in $PACKAGES; do
+            dir=$(dirname "$pkg")
+            echo "\n=== Testing $dir ==="
+            pushd "$dir"
+            echo "Installing dependencies in $dir"
+            npm ci --no-audit --no-fund
+            # Check if package.json defines a test script
+            hasTest=$(node -e "const p=require('./package.json'); console.log(Boolean(p.scripts && p.scripts.test));")
+            if [ "$hasTest" = "true" ]; then
+              echo "Running tests in $dir"
+              npm test
+            else
+              echo "No test script in $dir/package.json — skipping"
+            fi
+            popd
+          done
