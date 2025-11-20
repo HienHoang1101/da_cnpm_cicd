@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     name: Run payment-service tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,6 +23,36 @@ jobs:
         run: npm ci
         working-directory: payment-service
 
-      - name: Run tests
-        run: npm test --silent
+      - name: Install test reporter
+        run: npm install --no-save jest-junit@latest
         working-directory: payment-service
+
+      - name: Diagnostic: environment + files
+        run: |
+          set -eux
+          node -v
+          npm -v
+          pwd
+          ls -la
+          ls -la node_modules || true
+          cat package.json || true
+          npm list --depth=0 || true
+        working-directory: payment-service
+
+      - name: Run tests (produce JUnit)
+        run: |
+          mkdir -p test-results
+          set +e
+          npx jest --reporters=default --reporters=jest-junit --runInBand 2>&1 | tee test-results/test.log
+          echo ${PIPESTATUS[0]} > test-results/exit_code
+          set -e
+        working-directory: payment-service
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: payment-test-results
+          path: |
+            payment-service/test-results/**
+            payment-service/**
