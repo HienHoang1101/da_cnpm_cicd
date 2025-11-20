@@ -169,6 +169,7 @@ jobs:
           node-version: '18'
 
       - name: Cache node_modules for integration ${{ matrix.package.dir }}
+        if: ${{ matrix.package.dir != '__no_integration__' }}
         uses: actions/cache@v4
         with:
           path: ${{ matrix.package.dir }}/node_modules
@@ -177,6 +178,7 @@ jobs:
             ${{ runner.os }}-node-integ-
 
       - name: Install dependencies for integration ${{ matrix.package.dir }}
+        if: ${{ matrix.package.dir != '__no_integration__' }}
         working-directory: ${{ matrix.package.dir }}
         run: |
           set -e
@@ -187,6 +189,7 @@ jobs:
           fi
 
       - name: Ensure jest-junit available for integration ${{ matrix.package.dir }}
+        if: ${{ matrix.package.dir != '__no_integration__' }}
         working-directory: ${{ matrix.package.dir }}
         run: |
           if ! npm ls jest-junit >/dev/null 2>&1; then
@@ -194,6 +197,7 @@ jobs:
           fi
 
       - name: Run integration tests for ${{ matrix.package.dir }}
+        if: ${{ matrix.package.dir != '__no_integration__' }}
         working-directory: ${{ matrix.package.dir }}
         env:
           JEST_JUNIT_OUTPUT: ${{ matrix.package.dir }}/junit.xml
@@ -202,14 +206,14 @@ jobs:
           npx jest "__tests__/integration" --runInBand --reporters=default --reporters=jest-junit --coverage || true
 
       - name: Upload integration JUnit report for ${{ matrix.package.dir }}
-        if: always()
+        if: always() && matrix.package.dir != '__no_integration__'
         uses: actions/upload-artifact@v4
         with:
           name: integration-junit-${{ matrix.package.name }}
           path: ${{ matrix.package.dir }}/junit.xml
 
       - name: Upload integration coverage for ${{ matrix.package.dir }}
-        if: always()
+        if: always() && matrix.package.dir != '__no_integration__'
         uses: actions/upload-artifact@v4
         with:
           name: integration-coverage-${{ matrix.package.name }}
