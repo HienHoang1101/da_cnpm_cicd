@@ -74,6 +74,26 @@ jobs:
           echo "Containers after docker-compose up:"
           docker ps --format "table {{.Names}}\t{{.Status}}"
 
+      - name: Collect early container logs for artifacts
+        run: |
+          set -eux
+          mkdir -p monitoring/artifacts
+          echo "== docker ps ==" > monitoring/artifacts/docker-ps.txt
+          docker ps --format "table {{.Names}}\t{{.Status}}" >> monitoring/artifacts/docker-ps.txt 2>&1 || true
+
+          echo "== docker compose ps ==" > monitoring/artifacts/compose-ps.txt
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml ps >> monitoring/artifacts/compose-ps.txt 2>&1 || true
+
+          echo "== docker compose logs (tail) ==" > monitoring/artifacts/compose-logs.txt
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml logs --no-color --tail=200 >> monitoring/artifacts/compose-logs.txt 2>&1 || true
+
+          # Per-container logs to separate files
+          docker logs --tail 500 auth-service > monitoring/artifacts/auth-service.log 2>&1 || true
+          docker logs --tail 500 order-service > monitoring/artifacts/order-service.log 2>&1 || true
+          docker logs --tail 500 payment-service > monitoring/artifacts/payment-service.log 2>&1 || true
+          docker logs --tail 500 delivery-service > monitoring/artifacts/delivery-service.log 2>&1 || true
+          docker logs --tail 500 admin-service > monitoring/artifacts/admin-service.log 2>&1 || true
+
       - name: Debug: recent logs
         run: |
           set -eux
