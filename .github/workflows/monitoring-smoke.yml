@@ -39,6 +39,15 @@ jobs:
           name: monitoring-smoke
           path: artifacts
 
+      - name: Publish JUnit results to PR checks
+        uses: dorny/test-reporter@v1
+        with:
+          name: monitoring-smoke
+          path: monitoring/artifacts/smoke-result.xml
+          reporter: junit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Tear down stack
         if: always()
         run: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml down -v
