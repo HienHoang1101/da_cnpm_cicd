@@ -91,3 +91,4 @@ build/
 !/order/package-lock.json
 !/payment-service/package-lock.json
 !/notification-service/package-lock.json
+!/client-delivery-app/package-lock.json
