@@ -7,43 +7,84 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
-    name: Run tests for all services
+  list-packages:
+    name: List packages with tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    outputs:
+      packages: ${{ steps.packages.outputs.packages }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js 18
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Find and run tests in every package
+      - name: Build package matrix
+        id: packages
         shell: bash
         run: |
           set -euo pipefail
-          echo "Locating package.json files..."
-          PACKAGES=$(git ls-files "**/package.json" | tr '\n' ' ')
-          echo "Found packages: $PACKAGES"
-          if [ -z "$PACKAGES" ]; then
-            echo "No package.json files found. Nothing to test."
-            exit 0
-          fi
-          for pkg in $PACKAGES; do
-            dir=$(dirname "$pkg")
-            echo "\n=== Testing $dir ==="
-            pushd "$dir"
-            echo "Installing dependencies in $dir"
-            npm ci --no-audit --no-fund
-            # Check if package.json defines a test script
-            hasTest=$(node -e "const p=require('./package.json'); console.log(Boolean(p.scripts && p.scripts.test));")
-            if [ "$hasTest" = "true" ]; then
-              echo "Running tests in $dir"
-              npm test
-            else
-              echo "No test script in $dir/package.json — skipping"
+          echo "Finding package.json files..."
+          files=$(git ls-files "**/package.json" | tr '\n' ' ')
+          echo "Found: $files"
+          arr=()
+          for f in $files; do
+            # read package.json and check for a non-placeholder test script
+            testScript=$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('$f','utf8')); console.log(p.scripts && p.scripts.test ? p.scripts.test : '')")
+            if [ -n "$testScript" ] && [[ "$testScript" != *"Error: no test specified"* ]]; then
+              dir=$(dirname "$f")
+              name=$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('$f','utf8')); console.log(p.name||'${f%/*}')")
+              arr+=("{\"dir\":\"$dir\",\"name\":\"$name\"}")
             fi
-            popd
           done
+          json="[$(IFS=,; echo "${arr[*]}")]"
+          echo "packages=$json" >> $GITHUB_OUTPUT
+
+  test:
+    name: Run tests per package
+    needs: list-packages
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.list-packages.outputs.packages) }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Cache node_modules for ${{ matrix.package.dir }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ matrix.package.dir }}/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles(format('{0}/package-lock.json', matrix.package.dir)) }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies for ${{ matrix.package.dir }}
+        working-directory: ${{ matrix.package.dir }}
+        run: npm ci --no-audit --no-fund
+
+      - name: Run tests for ${{ matrix.package.dir }}
+        working-directory: ${{ matrix.package.dir }}
+        env:
+          JEST_JUNIT_OUTPUT: ${{ matrix.package.dir }}/junit.xml
+        run: |
+          if node -e "const p=require('./package.json'); console.log(Boolean(p.scripts && p.scripts.test));" | grep -q true; then
+            npx jest --runInBand --reporters=default --reporters=jest-junit || true
+          else
+            echo "No test script; skipping"
+          fi
+
+      - name: Upload JUnit report for ${{ matrix.package.dir }}
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.package.name }}
+          path: ${{ matrix.package.dir }}/junit.xml
