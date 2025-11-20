@@ -2,6 +2,9 @@ name: Monitoring Runner Diagnostics
 
 on:
   workflow_dispatch: {}
+  push:
+    branches:
+      - monitoring/pr-robust-smoke
 
 jobs:
   runner-diagnostics:
