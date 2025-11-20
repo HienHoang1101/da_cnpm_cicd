@@ -76,7 +76,8 @@ docker-compose.override.yml
 .circleci/
 .travis.yml
 .gitlab-ci.yml
-.github/
+# Allow GitHub Actions workflow files to be committed
+!.github/
 
 **/node_modules
 **/.env
