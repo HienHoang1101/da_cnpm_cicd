@@ -16,6 +16,8 @@ Tài liệu được dùng làm cơ sở cho:
 - Nhóm **QA/Tester**: xây dựng test case, test plan và đánh giá chất lượng hệ thống.  
 - **Giảng viên / PO / Stakeholder**: nắm rõ phạm vi, tính năng và ràng buộc của dự án.
 
+---
+
 ### 1.2. Mục tiêu dự án:
 
 - Đạt khả năng **mở rộng (scalability)** và **chịu lỗi (fault tolerance)** thông qua việc tách nhỏ thành các microservices độc lập.  
@@ -137,8 +139,6 @@ Hệ thống được thiết kế hướng sự kiện (event-driven) với **K
 ---
 
 ## 3. YÊU CẦU CHỨC NĂNG (FUNCTIONAL REQUIREMENTS – FR)
-
-> Ghi chú: Mỗi yêu cầu có mã dạng `FR-<MODULE>-<STT>` để trace qua thiết kế, code và test case.
 
 ---
 

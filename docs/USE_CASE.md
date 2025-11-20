@@ -909,210 +909,59 @@
 
 ## 4. PlantUML Use Case Diagram (tùy chọn)
 
-```plantuml
-@startuml
-left to right direction
-skinparam actorStyle awesome
-skinparam packageStyle rectangle
 
-actor "Customer" as C
-actor "Restaurant Owner" as R
-actor "Driver" as D
-actor "Admin" as A
-actor "Payment Gateway" as PG
-actor "Notification System" as NS
+là xong.
 
-rectangle "Customer Use Cases" {
-  (UC-C01 Đăng ký tài khoản)            as UC_C01
-  (UC-C02 Đăng nhập)                    as UC_C02
-  (UC-C03 Xem danh sách nhà hàng)       as UC_C03
-  (UC-C04 Xem menu & chi tiết món)      as UC_C04
-  (UC-C05 Quản lý giỏ hàng)             as UC_C05
-  (UC-C06 Đặt hàng)                     as UC_C06
-  (UC-C07 Thanh toán online/COD)        as UC_C07
-  (UC-C08 Theo dõi đơn hàng)            as UC_C08
-  (UC-C09 Xem lịch sử đơn hàng)         as UC_C09
-}
-
-rectangle "Restaurant Owner Use Cases" {
-  (UC-R01 Đăng nhập nhà hàng)                      as UC_R01
-  (UC-R02 Quản lý thông tin nhà hàng)              as UC_R02
-  (UC-R03 Quản lý menu & món ăn)                   as UC_R03
-  (UC-R04 Xem & xử lý đơn hàng)                    as UC_R04
-  (UC-R05 Xem thống kê đơn hàng & báo cáo doanh thu) as UC_R05
-}
-
-rectangle "Driver Use Cases" {
-  (UC-D01 Đăng nhập tài xế)                        as UC_D01
-  (UC-D02 Cập nhật trạng thái sẵn sàng)            as UC_D02
-  (UC-D03 Xem danh sách đơn được gán)              as UC_D03
-  (UC-D04 Cập nhật trạng thái giao hàng)           as UC_D04
-  (UC-D05 Cập nhật vị trí theo thời gian thực)     as UC_D05
-}
-
-rectangle "Admin Use Cases" {
-  (UC-A01 Đăng nhập Admin)                         as UC_A01
-  (UC-A02 Quản lý user & vai trò)                  as UC_A02
-  (UC-A03 Duyệt nhà hàng)                          as UC_A03
-  (UC-A04 Xem báo cáo & dashboard)                 as UC_A04
-  (UC-A05 Đối soát thanh toán với nhà hàng)        as UC_A05
-}
-
-'----------------------
-' Associations Customer
-'----------------------
-C -- UC_C01
-C -- UC_C02
-C -- UC_C03
-C -- UC_C04
-C -- UC_C05
-C -- UC_C06
-C -- UC_C07
-C -- UC_C08
-C -- UC_C09
-
-'----------------------
-' Associations Restaurant Owner
-'----------------------
-R -- UC_R01
-R -- UC_R02
-R -- UC_R03
-R -- UC_R04
-R -- UC_R05
-
-'----------------------
-' Associations Driver
-'----------------------
-D -- UC_D01
-D -- UC_D02
-D -- UC_D03
-D -- UC_D04
-D -- UC_D05
-
-'----------------------
-' Associations Admin
-'----------------------
-A -- UC_A01
-A -- UC_A02
-A -- UC_A03
-A -- UC_A04
-A -- UC_A05
-
-'----------------------
-' External Systems
-'----------------------
-PG -- UC_C07  : "Xử lý thanh toán online"
-
-' Notification System được hệ thống gọi để gửi thông báo
-NS -- UC_C06  : "Thông báo đơn mới/đặt hàng"
-NS -- UC_R04  : "Thông báo trạng thái đơn"
-NS -- UC_D04  : "Thông báo trạng thái giao hàng"
-NS -- UC_A03  : "Thông báo kết quả duyệt nhà hàng"
-
-@enduml
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           FOOD DELIVERY SYSTEM                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Customer                                                                   │
+│    │                                                                        │
+│    ├── UC-C01: Đăng ký tài khoản                                           │
+│    ├── UC-C02: Đăng nhập                                                   │
+│    ├── UC-C03: Xem danh sách nhà hàng                                      │
+│    ├── UC-C04: Xem menu & chi tiết món                                     │
+│    ├── UC-C05: Quản lý giỏ hàng                                            │
+│    ├── UC-C06: Đặt hàng ◄──────────────┐                                   │
+│    ├── UC-C07: Thanh toán online/COD   │ (extends)                         │
+│    ├── UC-C08: Theo dõi đơn hàng       │                                   │
+│    └── UC-C09: Xem lịch sử đơn hàng    │                                   │
+│                                         │                                   │
+│  Restaurant Owner                       │                                   │
+│    │                                    │                                   │
+│    ├── UC-R01: Đăng nhập nhà hàng      │                                   │
+│    ├── UC-R02: Quản lý thông tin nhà hàng                                  │
+│    ├── UC-R03: Quản lý menu & món ăn                                       │
+│    ├── UC-R04: Xem & xử lý đơn hàng ───┘ (trigger giao hàng)              │
+│    └── UC-R05: Thống kê đơn hàng & báo cáo doanh thu                       │
+│                                                                             │
+│  Driver                                                                      │
+│    │                                                                        │
+│    ├── UC-D01: Đăng nhập tài xế                                            │
+│    ├── UC-D02: Cập nhật trạng thái sẵn sàng                                │
+│    ├── UC-D03: Xem danh sách đơn được gán                                  │
+│    ├── UC-D04: Cập nhật trạng thái giao hàng                               │
+│    └── UC-D05: Cập nhật vị trí thời gian thực ◄── (include) UC-C08        │
+│                                                                             │
+│  Admin                                                                      │
+│    │                                                                        │
+│    ├── UC-A01: Đăng nhập Admin                                             │
+│    ├── UC-A02: Quản lý user & vai trò                                      │
+│    ├── UC-A03: Duyệt nhà hàng                                              │
+│    ├── UC-A04: Xem báo cáo & dashboard                                     │
+│    └── UC-A05: Đối soát thanh toán với nhà hàng                            │
+│                                                                             │
+│  External / Supporting Systems                                              │
+│    │                                                                        │
+│    ├── Payment Gateway (External)                                          │
+│    │      └── Tham gia UC-C07: Xử lý thanh toán                            │
+│    │                                                                        │
+│    └── Notification System                                                  │
+│           └── Gửi thông báo cho UC-C06, UC-R04, UC-D04, UC-A03             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 
 
------
-cách 2
-@startuml
-left to right direction
-skinparam actorStyle awesome
-skinparam packageStyle rectangle
-skinparam packageBorderStyle dashed
 
-'======== ACTORS =========
-actor "Admin"             as A
-actor "Customer"          as C
-actor "Restaurant Owner"  as R
-actor "Driver"            as D
-actor "Payment Gateway\n(External)" as PG
-actor "Notification System"         as NS
-
-'======== 4 NHÓM USE CASE ĐẶT THEO HÀNG NGANG =========
-together {
-
-  package "Admin" {
-    usecase "UC-A01: Đăng nhập Admin"                 as UC_A01_U
-    usecase "UC-A02: Quản lý user & vai trò"          as UC_A02_U
-    usecase "UC-A03: Duyệt nhà hàng"                  as UC_A03_U
-    usecase "UC-A04: Xem báo cáo & dashboard"         as UC_A04_U
-    usecase "UC-A05: Đối soát thanh toán\nvới nhà hàng" as UC_A05_U
-  }
-
-  package "Customer" {
-    usecase "UC-C01: Đăng ký tài khoản"          as UC_C01_U
-    usecase "UC-C02: Đăng nhập"                  as UC_C02_U
-    usecase "UC-C03: Xem danh sách nhà hàng"     as UC_C03_U
-    usecase "UC-C04: Xem menu & chi tiết món"    as UC_C04_U
-    usecase "UC-C05: Quản lý giỏ hàng"           as UC_C05_U
-    usecase "UC-C06: Đặt hàng"                   as UC_C06_U
-    usecase "UC-C07: Thanh toán online/COD"      as UC_C07_U
-    usecase "UC-C08: Theo dõi đơn hàng"          as UC_C08_U
-    usecase "UC-C09: Xem lịch sử đơn hàng"       as UC_C09_U
-  }
-
-  package "Restaurant Owner" {
-    usecase "UC-R01: Đăng nhập nhà hàng"                      as UC_R01_U
-    usecase "UC-R02: Quản lý thông tin nhà hàng"              as UC_R02_U
-    usecase "UC-R03: Quản lý menu & món ăn"                   as UC_R03_U
-    usecase "UC-R04: Xem & xử lý đơn hàng"                    as UC_R04_U
-    usecase "UC-R05: Thống kê đơn hàng\n& báo cáo doanh thu"  as UC_R05_U
-  }
-
-  package "Driver" {
-    usecase "UC-D01: Đăng nhập tài xế"                        as UC_D01_U
-    usecase "UC-D02: Cập nhật trạng thái sẵn sàng"            as UC_D02_U
-    usecase "UC-D03: Xem danh sách đơn được gán"              as UC_D03_U
-    usecase "UC-D04: Cập nhật trạng thái giao hàng"           as UC_D04_U
-    usecase "UC-D05: Cập nhật vị trí\ntheo thời gian thực"    as UC_D05_U
-  }
-
-}
-
-'======== LIÊN KẾT ACTOR <-> USE CASE =========
-A --> UC_A01_U
-A --> UC_A02_U
-A --> UC_A03_U
-A --> UC_A04_U
-A --> UC_A05_U
-
-C --> UC_C01_U
-C --> UC_C02_U
-C --> UC_C03_U
-C --> UC_C04_U
-C --> UC_C05_U
-C --> UC_C06_U
-C --> UC_C07_U
-C --> UC_C08_U
-C --> UC_C09_U
-
-R --> UC_R01_U
-R --> UC_R02_U
-R --> UC_R03_U
-R --> UC_R04_U
-R --> UC_R05_U
-
-D --> UC_D01_U
-D --> UC_D02_U
-D --> UC_D03_U
-D --> UC_D04_U
-D --> UC_D05_U
-
-'======== QUAN HỆ GIỮA USE CASE / HỆ THỐNG NGOÀI =========
-
-' Thanh toán dùng Payment Gateway
-PG --> UC_C07_U : "Xử lý\nthanh toán online"
-
-' Thanh toán là bước mở rộng của Đặt hàng
-UC_C07_U ..> UC_C06_U : <<extend>>
-
-' Tracking phụ thuộc vị trí driver
-UC_C08_U ..> UC_D05_U : <<include>>
-
-' Notification System là secondary actor
-NS --> UC_C06_U : "Thông báo\nđơn mới"
-NS --> UC_R04_U : "Thông báo\ntrạng thái đơn"
-NS --> UC_D04_U : "Thông báo\ntrạng thái giao"
-NS --> UC_A03_U : "Thông báo\nkết quả duyệt"
-
-@enduml
