@@ -94,7 +94,8 @@ jobs:
           JEST_JUNIT_OUTPUT: ${{ matrix.package.dir }}/junit.xml
         run: |
           if node -e "const p=require('./package.json'); console.log(Boolean(p.scripts && p.scripts.test));" | grep -q true; then
-            npx jest --runInBand --reporters=default --reporters=jest-junit || true
+            echo "Running package test script via npm to respect package.json settings"
+            npm test -- --runInBand --reporters=default --reporters=jest-junit || true
           else
             echo "No test script; skipping"
           fi
@@ -199,8 +200,8 @@ jobs:
         env:
           JEST_JUNIT_OUTPUT: ${{ matrix.package.dir }}/junit.xml
         run: |
-          # run only integration tests pattern
-          npx jest "__tests__/integration" --runInBand --reporters=default --reporters=jest-junit --coverage || true
+          echo "Running integration tests via package's test script (npm) with integration pattern"
+          npm test -- "__tests__/integration" -- --runInBand --reporters=default --reporters=jest-junit --coverage || true
 
       - name: Upload integration JUnit report for ${{ matrix.package.dir }}
         if: ${{ always() }}
