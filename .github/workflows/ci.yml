@@ -141,6 +141,12 @@ jobs:
               fi
             fi
           done
+          # If no integration tests found, add a harmless placeholder so the matrix
+          # is never empty (GitHub Actions fails on an empty matrix). The
+          # integration job will skip steps when this placeholder is present.
+          if [ ${#arr[@]} -eq 0 ]; then
+            arr+=("{\"dir\":\"__no_integration__\",\"name\":\"__no_integration__\"}")
+          fi
           json="[$(IFS=,; echo "${arr[*]}")]"
           echo "packages=$json" >> $GITHUB_OUTPUT
 
