@@ -84,3 +84,9 @@ docker-compose.override.yml
 *.log
 dist/
 build/
+
+# Allow committing package-lock.json for service folders used in CI
+!/auth/package-lock.json
+!/order/package-lock.json
+!/payment-service/package-lock.json
+!/notification-service/package-lock.json
