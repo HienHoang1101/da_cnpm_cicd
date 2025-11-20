@@ -44,3 +44,9 @@ Next steps I can do for you
 - Add a Helm/kubernetes manifest to deploy Prometheus & Grafana into `kubernetes/`.
 - Create Grafana provisioning files to auto-import dashboards and datasources.
 - Add exporter instrumentation examples to more services (e.g., `auth`, `order`).
+
+Quick smoke tests
+- There's a small smoke-check script at `monitoring/tests/check-metrics.js` that queries `/metrics` on common localhost ports. It is intended for local/dev checks or CI jobs that bring up services via `docker-compose`.
+
+Governance additions
+- A PR template and `CODEOWNERS` entries were added so monitoring changes require explicit reviewer attention.

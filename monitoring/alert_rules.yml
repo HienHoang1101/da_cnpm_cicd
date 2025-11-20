@@ -11,7 +11,8 @@ groups:
           description: "{{ $labels.job }} ({{ $labels.instance }}) has been down for more than 2 minutes."
 
       - alert: ServiceHighErrorRate
-        expr: rate(service_http_requests_total{status=~"5.."}[5m]) > 0.05
+        # Use the `status_code` label emitted by the metrics middleware
+        expr: rate(service_http_requests_total{status_code=~"5.."}[5m]) > 0.05
         for: 5m
         labels:
           severity: warning
@@ -20,6 +21,7 @@ groups:
           description: "Service {{ $labels.service }} has a high 5xx rate over 5 minutes."
 
       - alert: ServiceHighLatency
+        # p95 latency per service
         expr: histogram_quantile(0.95, sum(rate(service_http_request_duration_seconds_bucket[5m])) by (le, service)) > 0.5
         for: 5m
         labels:
@@ -47,7 +49,8 @@ groups:
           description: "Notification service has >0.1 5xx errors/s over 5m."
 
       - alert: AdminServiceHighLatency
-        expr: histogram_quantile(0.95, sum(rate(service_http_request_duration_seconds_bucket{service="admin-service"}[5m])) by (le)) > 1
+        # Ensure we compute p95 specifically for admin-service
+        expr: histogram_quantile(0.95, sum(rate(service_http_request_duration_seconds_bucket{service="admin-service"}[5m])) by (le, service)) > 1
         for: 5m
         labels:
           severity: warning
