@@ -1,3 +1,15 @@
+# Monitoring
+
+This folder contains centralized monitoring configuration for the FastFood Delivery project.
+
+Goals:
+- Centralize Prometheus scrape configuration and alerting rules.
+- Provide Grafana dashboards (provisioned) to visualize service metrics.
+- Ensure PRs that change monitoring configuration are reviewed by owners listed in `CODEOWNERS`.
+
+Guidelines:
+- Keep scrape intervals conservative (15s) for production; tests and dev can use higher intervals.
+- When adding metrics, prefer stable metric names and include `service` labels.
 Monitoring skeleton for the FastFood Delivery project
 
 Overview

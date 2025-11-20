@@ -1,4 +1,4 @@
-import client from 'prom-client';
+const client = require('prom-client');
 
 // Default metrics collector
 const collectDefaultMetrics = client.collectDefaultMetrics;
@@ -17,15 +17,18 @@ const httpRequestDuration = new client.Histogram({
   buckets: [0.005, 0.01, 0.05, 0.1, 0.3, 0.5, 1, 2, 5]
 });
 
-export function metricsMiddleware(serviceName) {
+function metricsMiddleware(serviceName) {
   return (req, res, next) => {
-    const end = httpRequestDuration.startTimer({ service: serviceName, route: req.route?.path || req.path, method: req.method });
+    const end = httpRequestDuration.startTimer({ service: serviceName, route: (req.route && req.route.path) || req.path, method: req.method });
     res.on('finish', () => {
-      httpRequestCounter.inc({ service: serviceName, method: req.method, route: req.route?.path || req.path, status_code: res.statusCode }, 1);
+      httpRequestCounter.inc({ service: serviceName, method: req.method, route: (req.route && req.route.path) || req.path, status_code: res.statusCode }, 1);
       end();
     });
     next();
   };
 }
 
-export default client;
+module.exports = {
+  metricsMiddleware,
+  client,
+};

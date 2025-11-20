@@ -1,0 +1,31 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "FastFood Services Overview",
+    "panels": [
+      {
+        "type": "graph",
+        "title": "requests_total by service",
+        "targets": [
+          {
+            "expr": "sum by (service) (rate(http_requests_total[5m]))",
+            "format": "time_series"
+          }
+        ],
+        "gridPos": { "x": 0, "y": 0, "w": 24, "h": 9 }
+      },
+      {
+        "type": "graph",
+        "title": "error_rate by service",
+        "targets": [
+          {
+            "expr": "sum by (service) (rate(http_requests_total{status=~\"5..\"}[5m])) / sum by (service) (rate(http_requests_total[5m]))",
+            "format": "time_series"
+          }
+        ],
+        "gridPos": { "x": 0, "y": 9, "w": 24, "h": 9 }
+      }
+    ],
+    "schemaVersion": 27
+  }
+}
