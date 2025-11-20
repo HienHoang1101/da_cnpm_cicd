@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  monitoring-mongo:
+    image: mongo:5.0
+    container_name: monitoring-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - monitoring-mongo-data:/data/db
+    restart: unless-stopped
+
+  # Override environment vars for local monitoring smoke tests
+  auth-service:
+    environment:
+      - MONGO_URI=mongodb://monitoring-mongo:27017/authdb
+      - AUTO_SEED_ADMIN=true
+      - PORT=5001
+      - NODE_ENV=development
+      - JWT_SECRET=localdevsecret
+      - JWT_REFRESH_SECRET=localrefreshsecret
+      - JWT_EXPIRE=1d
+      - JWT_REFRESH_EXPIRE=7d
+      - CORS_ORIGIN=http://localhost:3000
+      - AUTH_SERVICE_URL=http://localhost:5001
+      - ORDER_SERVICE_URL=http://localhost:5002
+      - RESTAURANT_SERVICE_URL=http://localhost:5003
+  order-service:
+    environment:
+      - MONGODB_URI=mongodb://monitoring-mongo:27017/orderdb
+      - PORT=5002
+      - NODE_ENV=development
+      - JWT_SECRET=localdevsecret
+      - AUTH_SERVICE_URL=http://localhost:5001
+      - ADMIN_SERVICE_URL=http://localhost:5008
+      - RESTAURANT_SERVICE_URL=http://localhost:5003
+      - CORS_ORIGIN=http://localhost:3000
+  delivery-service:
+    environment:
+      - DELIVERY_MONGO_URI=mongodb://monitoring-mongo:27017/deliverydb
+      - PORT=5004
+      - NODE_ENV=development
+      - JWT_SECRET=localdevsecret
+      - AUTH_SERVICE_URL=http://localhost:5001
+      - ORDER_SERVICE_URL=http://localhost:5002
+      - RESTAURANT_SERVICE_URL=http://localhost:5003
+      - CORS_ORIGIN=http://localhost:3000
+  payment-service:
+    environment:
+      - MONGO_URI=mongodb://monitoring-mongo:27017/paymentdb
+      - PORT=5005
+      - NODE_ENV=development
+      - AUTH_SERVICE_URL=http://localhost:5001
+      - ORDER_SERVICE_URL=http://localhost:5002
+      - RESTAURANT_SERVICE_URL=http://localhost:5003
+      - STRIPE_SECRET_KEY=sk_test_local
+      - PAYHERE_MERCHANT_ID=local_merchant
+      - PAYHERE_SECRET=local_payhere_secret
+      - PAYHERE_BASE_URL=https://sandbox.payhere.com
+  admin-service:
+    environment:
+      - MONGO_URI=mongodb://monitoring-mongo:27017/admindb
+      - PORT=5008
+      - AUTH_SERVICE_URL=http://localhost:5001
+      - ORDER_SERVICE_URL=http://localhost:5002
+      - RESTAURANT_SERVICE_URL=http://localhost:5003
+
+volumes:
+  monitoring-mongo-data:
