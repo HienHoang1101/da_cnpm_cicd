@@ -44,7 +44,7 @@ jobs:
   smoke-check:
     name: Monitoring /metrics smoke check
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,9 +67,37 @@ jobs:
             echo "monitoring-mongo already running"
           fi
 
-          # Build and start services using the compose override
-          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml build --parallel
-          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up --pull always -d monitoring-mongo auth-service order-service payment-service delivery-service admin-service || true
+          # Build services first
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml build --parallel || true
+
+          # Retry loop for docker compose up + simple readiness check
+          SERVICES=(monitoring-mongo auth-service order-service payment-service delivery-service admin-service)
+          MAX_ATTEMPTS=5
+          attempt=1
+          while [ $attempt -le $MAX_ATTEMPTS ]; do
+            echo "Compose up attempt $attempt/$MAX_ATTEMPTS"
+            docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up --pull always -d monitoring-mongo auth-service order-service payment-service delivery-service admin-service || true
+
+            # give containers a moment to start
+            sleep $((attempt * 4))
+
+            all_up=1
+            for s in "${SERVICES[@]}"; do
+              if [ -z "$(docker ps -q -f name=^${s}$)" ]; then
+                echo "Service $s is not running yet"
+                all_up=0
+              fi
+            done
+
+            if [ $all_up -eq 1 ]; then
+              echo "All services report running"
+              break
+            fi
+
+            attempt=$((attempt+1))
+            echo "Not all services are up yet; will retry compose up after sleep"
+            sleep 8
+          done
 
           echo "Containers after docker-compose up:"
           docker ps --format "table {{.Names}}\t{{.Status}}"
@@ -110,13 +138,29 @@ jobs:
           set -eux
           npm ci --prefix ./monitoring || npm install --prefix ./monitoring
 
-      - name: Run metrics smoke-check (outputs to monitoring/artifacts)
+      - name: Run metrics smoke-check (outputs to monitoring/artifacts) with retries
         id: smoke
         run: |
           set -eux
           mkdir -p monitoring/artifacts
-          # Run smoke-check and always write output files for artifacts
-          node monitoring/tests/check-metrics.js > monitoring/artifacts/smoke-output.txt 2>&1 || echo "SMOKE_EXIT=$?" > monitoring/artifacts/smoke-exit.txt
+
+          MAX_ATTEMPTS=5
+          attempt=1
+          success=0
+          while [ $attempt -le $MAX_ATTEMPTS ]; do
+            echo "Smoke test attempt $attempt/$MAX_ATTEMPTS"
+            node monitoring/tests/check-metrics.js > monitoring/artifacts/smoke-output.txt 2>&1 && success=1 && break || true
+            echo "Smoke test failed on attempt $attempt"
+            # capture exit code
+            echo "SMOKE_EXIT_ATTEMPT_${attempt}=$?" >> monitoring/artifacts/smoke-output.txt || true
+            attempt=$((attempt+1))
+            sleep $((attempt * 5))
+          done
+
+          if [ $success -ne 1 ]; then
+            echo "Smoke test did not succeed after $MAX_ATTEMPTS attempts" > monitoring/artifacts/smoke-exit.txt
+            exit 1
+          fi
 
       - name: Upload smoke artifacts
         if: always()
