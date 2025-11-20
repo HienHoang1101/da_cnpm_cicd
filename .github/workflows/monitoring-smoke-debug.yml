@@ -1,0 +1,25 @@
+name: Monitoring Smoke Debug
+
+on:
+  push:
+    branches:
+      - monitoring/pr-robust-smoke
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create debug artifact
+        run: |
+          set -eux
+          mkdir -p monitoring/artifacts
+          echo "debug: monitoring smoke debug run" > monitoring/artifacts/debug.txt
+
+      - name: Upload debug artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-debug
+          path: monitoring/artifacts/**

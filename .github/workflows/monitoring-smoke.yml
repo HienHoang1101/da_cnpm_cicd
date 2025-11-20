@@ -1,0 +1,195 @@
+name: Monitoring /metrics smoke check
+
+
+on:
+  pull_request:
+    paths:
+      - 'monitoring/**'
+      - 'docker-compose.monitoring.yml'
+      - '.github/workflows/**'
+  workflow_dispatch: {}
+
+jobs:
+  runner-diagnostics:
+    name: Runner diagnostics
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Collect runner Docker info
+        run: |
+          set -eux
+          mkdir -p monitoring/artifacts
+          echo "== uname -a ==" > monitoring/artifacts/runner-diag.txt
+          uname -a >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+          echo "\n== df -h ==" >> monitoring/artifacts/runner-diag.txt
+          df -h >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+          echo "\n== docker --version ==" >> monitoring/artifacts/runner-diag.txt
+          docker --version >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+          echo "\n== docker info ==" >> monitoring/artifacts/runner-diag.txt
+          docker info >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+          echo "\n== docker compose version ==" >> monitoring/artifacts/runner-diag.txt
+          docker compose version >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+          echo "\n== docker ps (short) ==" >> monitoring/artifacts/runner-diag.txt
+          docker ps --format "table {{.Names}}\t{{.Status}}" >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+
+      - name: Upload runner diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-diag
+          path: monitoring/artifacts/runner-diag.txt
+
+  smoke-check:
+    name: Monitoring /metrics smoke check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Start monitoring stack (build + up)
+        env:
+          COMPOSE_DOCKER_CLI_BUILD: 1
+          DOCKER_BUILDKIT: 1
+        run: |
+          set -eux
+          # Ensure a local Mongo is available for services
+          if [ -z "$(docker ps -q -f name=monitoring-mongo)" ]; then
+            docker run -d --name monitoring-mongo -p 27017:27017 mongo:5.0 || true
+          else
+            echo "monitoring-mongo already running"
+          fi
+
+          # Build services first
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml build --parallel || true
+
+          # Retry loop for docker compose up + simple readiness check
+          SERVICES=(monitoring-mongo auth-service order-service payment-service delivery-service admin-service)
+          MAX_ATTEMPTS=5
+          attempt=1
+          while [ $attempt -le $MAX_ATTEMPTS ]; do
+            echo "Compose up attempt $attempt/$MAX_ATTEMPTS"
+            docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up --pull always -d monitoring-mongo auth-service order-service payment-service delivery-service admin-service || true
+
+            # give containers a moment to start
+            sleep $((attempt * 4))
+
+            all_up=1
+            for s in "${SERVICES[@]}"; do
+              if [ -z "$(docker ps -q -f name=^${s}$)" ]; then
+                echo "Service $s is not running yet"
+                all_up=0
+              fi
+            done
+
+            if [ $all_up -eq 1 ]; then
+              echo "All services report running"
+              break
+            fi
+
+            attempt=$((attempt+1))
+            echo "Not all services are up yet; will retry compose up after sleep"
+            sleep 8
+          done
+
+          echo "Containers after docker-compose up:"
+          docker ps --format "table {{.Names}}\t{{.Status}}"
+
+      - name: Collect early container logs for artifacts
+        run: |
+          set -eux
+          mkdir -p monitoring/artifacts
+          echo "== docker ps ==" > monitoring/artifacts/docker-ps.txt
+          docker ps --format "table {{.Names}}\t{{.Status}}" >> monitoring/artifacts/docker-ps.txt 2>&1 || true
+
+          echo "== docker compose ps ==" > monitoring/artifacts/compose-ps.txt
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml ps >> monitoring/artifacts/compose-ps.txt 2>&1 || true
+
+          echo "== docker compose logs (tail) ==" > monitoring/artifacts/compose-logs.txt
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml logs --no-color --tail=200 >> monitoring/artifacts/compose-logs.txt 2>&1 || true
+
+          # Per-container logs to separate files
+          docker logs --tail 500 auth-service > monitoring/artifacts/auth-service.log 2>&1 || true
+          docker logs --tail 500 order-service > monitoring/artifacts/order-service.log 2>&1 || true
+          docker logs --tail 500 payment-service > monitoring/artifacts/payment-service.log 2>&1 || true
+          docker logs --tail 500 delivery-service > monitoring/artifacts/delivery-service.log 2>&1 || true
+          docker logs --tail 500 admin-service > monitoring/artifacts/admin-service.log 2>&1 || true
+
+      - name: Debug: recent logs
+        run: |
+          set -eux
+          sleep 8
+          docker ps --format "table {{.Names}}\t{{.Status}}"
+          docker logs --tail 200 auth-service || true
+          docker logs --tail 200 order-service || true
+          docker logs --tail 200 payment-service || true
+          docker logs --tail 200 delivery-service || true
+          docker logs --tail 200 admin-service || true
+
+      - name: Install monitoring dependencies
+        run: |
+          set -eux
+          npm ci --prefix ./monitoring || npm install --prefix ./monitoring
+
+      - name: Run metrics smoke-check (outputs to monitoring/artifacts) with retries
+        id: smoke
+        run: |
+          set -eux
+          mkdir -p monitoring/artifacts
+
+          MAX_ATTEMPTS=5
+          attempt=1
+          success=0
+          while [ $attempt -le $MAX_ATTEMPTS ]; do
+            echo "Smoke test attempt $attempt/$MAX_ATTEMPTS"
+            node monitoring/tests/check-metrics.js > monitoring/artifacts/smoke-output.txt 2>&1 && success=1 && break || true
+            echo "Smoke test failed on attempt $attempt"
+            # capture exit code
+            echo "SMOKE_EXIT_ATTEMPT_${attempt}=$?" >> monitoring/artifacts/smoke-output.txt || true
+            attempt=$((attempt+1))
+            sleep $((attempt * 5))
+          done
+
+          if [ $success -ne 1 ]; then
+            echo "Smoke test did not succeed after $MAX_ATTEMPTS attempts" > monitoring/artifacts/smoke-exit.txt
+            exit 1
+          fi
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-smoke
+          path: monitoring/artifacts/**
+
+      - name: Publish JUnit results to PR checks
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: monitoring-smoke
+          path: monitoring/artifacts/smoke-result.xml
+          reporter: junit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tear down stack
+        if: always()
+        run: |
+          set -eux || true
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml down -v || true
+
+      - name: Fail if smoke-test failed
+        if: always()
+        run: |
+          if [ -f monitoring/artifacts/smoke-exit.txt ]; then
+            echo "Smoke test reported non-zero exit"; cat monitoring/artifacts/smoke-output.txt || true; exit 1
+          else
+            echo "Smoke test artifacts indicate success (or no explicit exit file)."; cat monitoring/artifacts/smoke-output.txt || true
+          fi
+

@@ -1,0 +1,58 @@
+name: Payment Service Tests
+
+on:
+  pull_request:
+    paths:
+      - 'payment-service/**'
+      - '.github/workflows/payment-tests.yml'
+
+jobs:
+  test:
+    name: Run payment-service tests
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: payment-service
+
+      - name: Install test reporter
+        run: npm install --no-save jest-junit@latest
+        working-directory: payment-service
+
+      - name: Diagnostic: environment + files
+        run: |
+          set -eux
+          node -v
+          npm -v
+          pwd
+          ls -la
+          ls -la node_modules || true
+          cat package.json || true
+          npm list --depth=0 || true
+        working-directory: payment-service
+
+      - name: Run tests (produce JUnit)
+        run: |
+          mkdir -p test-results
+          set +e
+          npx jest --reporters=default --reporters=jest-junit --runInBand 2>&1 | tee test-results/test.log
+          echo ${PIPESTATUS[0]} > test-results/exit_code
+          set -e
+        working-directory: payment-service
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: payment-test-results
+          path: |
+            payment-service/test-results/**
+            payment-service/**

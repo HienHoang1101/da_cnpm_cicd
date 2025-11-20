@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
     container_name: auth-service
     ports:
-      - "${A_PORT}:5001"
+      - "5001:5001"
     environment:
       - PORT=${A_PORT}
       - NODE_ENV=${NODE_ENV}
@@ -31,7 +31,7 @@ services:
       dockerfile: Dockerfile
     container_name: admin-service
     ports:
-      - "${PORT_Admin}:5008"
+      - "5008:5008"
     environment:
       - PORT=${PORT_Admin}
       - MONGO_URI=${MONGO_URI_Admin}
@@ -47,7 +47,7 @@ services:
       dockerfile: Dockerfile
     container_name: order-service
     ports:
-      - "${PORT}:5002"
+      - "5002:5002"
     environment:
       - PORT=${PORT}
       - NODE_ENV=${NODE_ENV}
@@ -65,7 +65,7 @@ services:
       dockerfile: Dockerfile
     container_name: delivery-service
     ports:
-      - "${PORT_Delivery}:5004"
+      - "5004:5004"
     environment:
       - PORT=${PORT_Delivery}
       - DELIVERY_MONGO_URI=${MONGO_URI_Delivery}
@@ -87,7 +87,7 @@ services:
       dockerfile: Dockerfile
     container_name: payment-service
     ports:
-      - "${PORT_Payment}:5005"
+      - "5005:5005"
     environment:
       - MONGO_URI=${MONGO_URI_Payment}
       - PAYHERE_MERCHANT_ID=${PAYHERE_MERCHANT_ID}
