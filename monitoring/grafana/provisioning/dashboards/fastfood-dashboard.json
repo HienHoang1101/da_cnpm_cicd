@@ -1,31 +1,188 @@
 {
   "dashboard": {
     "id": null,
+    "uid": "fastfood-overview",
     "title": "FastFood Services Overview",
+    "tags": ["microservices", "fastfood"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "30s",
     "panels": [
       {
+        "id": 1,
         "type": "graph",
-        "title": "requests_total by service",
+        "title": "Request Rate by Service",
         "targets": [
           {
-            "expr": "sum by (service) (rate(http_requests_total[5m]))",
-            "format": "time_series"
+            "expr": "sum by (service) (rate(service_http_requests_total[5m]))",
+            "legendFormat": "{{service}}",
+            "refId": "A"
           }
         ],
-        "gridPos": { "x": 0, "y": 0, "w": 24, "h": 9 }
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "yaxes": [
+          { "format": "reqps", "label": "Requests/sec" },
+          { "format": "short" }
+        ]
       },
       {
+        "id": 2,
         "type": "graph",
-        "title": "error_rate by service",
+        "title": "Error Rate by Service (5xx)",
         "targets": [
           {
-            "expr": "sum by (service) (rate(http_requests_total{status=~\"5..\"}[5m])) / sum by (service) (rate(http_requests_total[5m]))",
-            "format": "time_series"
+            "expr": "sum by (service) (rate(service_http_requests_total{status_code=~\"5..\"}[5m]))",
+            "legendFormat": "{{service}}",
+            "refId": "A"
           }
         ],
-        "gridPos": { "x": 0, "y": 9, "w": 24, "h": 9 }
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "yaxes": [
+          { "format": "reqps", "label": "Errors/sec" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [0.05], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "High Error Rate",
+          "noDataState": "no_data"
+        }
+      },
+      {
+        "id": 3,
+        "type": "graph",
+        "title": "p95 Latency by Service",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (service, le) (rate(service_http_request_duration_seconds_bucket[5m])))",
+            "legendFormat": "{{service}} p95",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "yaxes": [
+          { "format": "s", "label": "Latency" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Services Up",
+        "targets": [
+          {
+            "expr": "count(up{job=~\".*service.*\"} == 1)",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "x": 12, "y": 8, "w": 6, "h": 4 },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          },
+          "textMode": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 3 },
+                { "color": "green", "value": 5 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "type": "stat",
+        "title": "Total Requests (1h)",
+        "targets": [
+          {
+            "expr": "sum(increase(service_http_requests_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "x": 18, "y": 8, "w": 6, "h": 4 },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          },
+          "textMode": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "type": "table",
+        "title": "Service Status",
+        "targets": [
+          {
+            "expr": "up{job=~\".*service.*\"}",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true, "__name__": true },
+              "indexByName": {},
+              "renameByName": {
+                "instance": "Instance",
+                "job": "Job",
+                "Value": "Status"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "type": "heatmap",
+        "title": "Request Duration Heatmap",
+        "targets": [
+          {
+            "expr": "sum(rate(service_http_request_duration_seconds_bucket[5m])) by (le)",
+            "format": "heatmap",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 }
       }
-    ],
-    "schemaVersion": 27
+    ]
   }
 }

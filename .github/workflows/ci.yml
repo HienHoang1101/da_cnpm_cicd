@@ -21,14 +21,6 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Debug integration matrix
-        run: |
-          echo "Matrix package: ${{ toJson(matrix.package) }}"
-          if [ "${{ matrix.package.dir }}" = "__no_integration__" ]; then
-            echo "No integration packages found — skipping integration-tests."
-            exit 0
-          fi
-
       - name: Build package matrix
         id: packages
         shell: bash
@@ -149,11 +141,11 @@ jobs:
               fi
             fi
           done
-          # If no integration tests found, add a harmless placeholder so the matrix
-          # is never empty (GitHub Actions fails on an empty matrix). The
-          # integration job will skip steps when this placeholder is present.
+          # If no integration tests found, emit an empty JSON array so callers
+          # can decide to skip the integration job. We don't add placeholders here.
           if [ ${#arr[@]} -eq 0 ]; then
-            arr+=("{\"dir\":\"__no_integration__\",\"name\":\"__no_integration__\"}")
+            echo "packages=[]" >> $GITHUB_OUTPUT
+            exit 0
           fi
           json="[$(IFS=,; echo "${arr[*]}")]"
           echo "packages=$json" >> $GITHUB_OUTPUT
@@ -161,6 +153,7 @@ jobs:
   integration-tests:
     name: Run integration tests (long)
     needs: list-integration-packages
+    if: ${{ needs.list-integration-packages.outputs.packages != '[]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -177,7 +170,6 @@ jobs:
           node-version: '18'
 
       - name: Cache node_modules for integration ${{ matrix.package.dir }}
-        if: ${{ matrix.package.dir != '__no_integration__' }}
         uses: actions/cache@v4
         with:
           path: ${{ matrix.package.dir }}/node_modules
@@ -186,7 +178,6 @@ jobs:
             ${{ runner.os }}-node-integ-
 
       - name: Install dependencies for integration ${{ matrix.package.dir }}
-        if: ${{ matrix.package.dir != '__no_integration__' }}
         working-directory: ${{ matrix.package.dir }}
         run: |
           set -e
@@ -197,7 +188,6 @@ jobs:
           fi
 
       - name: Ensure jest-junit available for integration ${{ matrix.package.dir }}
-        if: ${{ matrix.package.dir != '__no_integration__' }}
         working-directory: ${{ matrix.package.dir }}
         run: |
           if ! npm ls jest-junit >/dev/null 2>&1; then
@@ -205,7 +195,6 @@ jobs:
           fi
 
       - name: Run integration tests for ${{ matrix.package.dir }}
-        if: ${{ matrix.package.dir != '__no_integration__' }}
         working-directory: ${{ matrix.package.dir }}
         env:
           JEST_JUNIT_OUTPUT: ${{ matrix.package.dir }}/junit.xml
@@ -214,14 +203,14 @@ jobs:
           npx jest "__tests__/integration" --runInBand --reporters=default --reporters=jest-junit --coverage || true
 
       - name: Upload integration JUnit report for ${{ matrix.package.dir }}
-        if: ${{ always() && matrix.package.dir != '__no_integration__' }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: integration-junit-${{ matrix.package.name }}
           path: ${{ matrix.package.dir }}/junit.xml
 
       - name: Upload integration coverage for ${{ matrix.package.dir }}
-        if: ${{ always() && matrix.package.dir != '__no_integration__' }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: integration-coverage-${{ matrix.package.name }}

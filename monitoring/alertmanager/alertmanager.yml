@@ -1,0 +1,29 @@
+global:
+  resolve_timeout: 5m
+route:
+  receiver: 'team-notifications'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'pager'
+    - match_re:
+        service: ".*"
+      receiver: 'team-notifications'
+receivers:
+  - name: 'team-notifications'
+    webhook_configs:
+      - url: 'https://hooks.example.com/monitoring' # replace with real webhook
+  - name: 'pager'
+    email_configs:
+      - to: 'oncall@example.com'
+        from: 'alertmanager@example.com'
+        smarthost: 'smtp.example.com:587'
+        auth_username: 'alert@example.com'
+        auth_identity: 'alert@example.com'
+        auth_password: 'REPLACE_ME'
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['service']
