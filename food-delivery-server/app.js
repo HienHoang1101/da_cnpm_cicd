@@ -25,6 +25,22 @@ app.use(cors({
 app.use(morgan('dev'));
 app.use(express.json());
 
+// Monitoring: register metrics middleware and expose /metrics
+try {
+  const monitoring = require('../monitoring/metrics-middleware.js');
+  app.use(monitoring.metricsMiddleware('food-delivery-server'));
+  app.get('/metrics', async (req, res) => {
+    try {
+      res.set('Content-Type', monitoring.client.register.contentType);
+      res.end(await monitoring.client.register.metrics());
+    } catch (err) {
+      res.status(500).end(err.message);
+    }
+  });
+} catch (e) {
+  console.warn('Monitoring not initialized for delivery service', e.message);
+}
+
 // Database connection
 mongoose.connect(process.env.DELIVERY_MONGO_URI)
   .then(() => console.log('MongoDB connected for Delivery Service'))

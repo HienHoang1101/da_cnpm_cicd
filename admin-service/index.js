@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import RestaurantSettlement from "./routes/restaurantPaymentRoutes.js";
 import { processWeeklySettlements } from "./controllers/settlementController.js";
 import cron from "node-cron";
+import { createRequire } from 'module';
 
 dotenv.config();
 
@@ -43,6 +44,23 @@ cron.schedule(
 
 // Routes
 app.use("/api/settlements", RestaurantSettlement);
+
+// Monitoring: register metrics middleware and expose /metrics
+try {
+  const require = createRequire(import.meta.url);
+  const monitoring = require('../monitoring/metrics-middleware.js');
+  app.use(monitoring.metricsMiddleware('admin-service'));
+  app.get('/metrics', async (req, res) => {
+    try {
+      res.set('Content-Type', monitoring.client.register.contentType);
+      res.end(await monitoring.client.register.metrics());
+    } catch (err) {
+      res.status(500).end(err.message);
+    }
+  });
+} catch (e) {
+  console.warn('Monitoring not initialized for admin-service', e.message);
+}
 
 // Database Connection
 mongoose

@@ -10,8 +10,8 @@ groups:
           summary: "Instance {{ $labels.instance }} down"
           description: "{{ $labels.job }} ({{ $labels.instance }}) has been down for more than 2 minutes."
 
-      - alert: HighErrorRate
-        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0
+      - alert: ServiceHighErrorRate
+        expr: rate(service_http_requests_total{status=~"5.."}[5m]) > 0.05
         for: 5m
         labels:
           severity: warning
@@ -19,40 +19,38 @@ groups:
           summary: "High 5xx error rate for {{ $labels.service }}"
           description: "Service {{ $labels.service }} has a high 5xx rate over 5 minutes."
 
-      - alert: HighLatency
-        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)) > 1
+      - alert: ServiceHighLatency
+        expr: histogram_quantile(0.95, sum(rate(service_http_request_duration_seconds_bucket[5m])) by (le, service)) > 0.5
         for: 5m
         labels:
           severity: warning
         annotations:
           summary: "High latency on {{ $labels.service }}"
-          description: "95th percentile latency for {{ $labels.service }} is above 1s."
-groups:
-  - name: example-alerts
-    rules:
-      - alert: InstanceDown
-        expr: up == 0
-        for: 1m
+          description: "95th percentile latency for {{ $labels.service }} is above 0.5s."
+
+      - alert: PaymentServiceCriticalErrors
+        expr: rate(service_http_requests_total{service="payment-service", status=~"5.."}[5m]) > 0.1
+        for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "Instance {{ $labels.instance }} down"
-          description: "Prometheus target {{ $labels.job }} ({{ $labels.instance }}) is down."
-
-      - alert: HighErrorRate
-        expr: rate(payment_service_http_requests_total{status_code=~"5.."}[5m]) > 0.1
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High error rate in payment-service"
+          summary: "Critical error rate in payment-service"
           description: "Payment service has >0.1 5xx errors/s over 5m."
 
-      - alert: HighLatency
-        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 0.5
+      - alert: NotificationServiceHighErrors
+        expr: rate(service_http_requests_total{service="notification-service", status=~"5.."}[5m]) > 0.1
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "High p95 latency"
-          description: "p95 request duration is above 0.5s."
+          summary: "High error rate in notification-service"
+          description: "Notification service has >0.1 5xx errors/s over 5m."
+
+      - alert: AdminServiceHighLatency
+        expr: histogram_quantile(0.95, sum(rate(service_http_request_duration_seconds_bucket{service="admin-service"}[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency in admin-service"
+          description: "Admin service p95 latency above 1s over 5m."

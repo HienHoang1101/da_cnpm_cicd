@@ -4,6 +4,7 @@ import BodyParser from "body-parser";
 import mongoose from "mongoose";
 import { MONGOURL, PORT } from "./config.js";
 import dotenv from "dotenv";
+import { createRequire } from 'module';
 import Owner from "./Routes/ResturantOwnerRoute.js";
 import Admin from "./routes/branchAdminRoute.js";
 
@@ -26,6 +27,23 @@ global.gConfig = {
 app.use(express.json());
 app.use(BodyParser.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Monitoring: register metrics middleware and expose /metrics
+try {
+  const require = createRequire(import.meta.url);
+  const monitoring = require('../monitoring/metrics-middleware.js');
+  app.use(monitoring.metricsMiddleware('restaurant-service'));
+  app.get('/metrics', async (req, res) => {
+    try {
+      res.set('Content-Type', monitoring.client.register.contentType);
+      res.end(await monitoring.client.register.metrics());
+    } catch (err) {
+      res.status(500).end(err.message);
+    }
+  });
+} catch (e) {
+  console.warn('Monitoring not initialized for restaurant-service', e.message);
+}
 
 app.use("/api", Owner);
 app.use("/api/branch", Admin);
