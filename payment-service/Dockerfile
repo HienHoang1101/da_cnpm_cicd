@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:latest
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ RUN npm install --production
 COPY . .
 
 # Expose the port the app runs on
-EXPOSE 5005
+EXPOSE 5007
 
 # Command to run the application
 CMD ["node", "index.js"]

@@ -27,7 +27,7 @@ app.use(express.json());
 
 // Monitoring: register metrics middleware and expose /metrics
 try {
-  const monitoring = require('./monitoring/metrics-middleware.cjs');
+  const monitoring = require('../monitoring/metrics-middleware.js');
   app.use(monitoring.metricsMiddleware('food-delivery-server'));
   app.get('/metrics', async (req, res) => {
     try {

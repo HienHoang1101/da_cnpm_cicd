@@ -1,11 +1,8 @@
 const http = require('http');
-
-// Default host ports should match docker-compose host mappings used during monitoring runs.
-// They can be overridden with environment variables PAYMENT_METRICS_URL, AUTH_METRICS_URL, ORDER_METRICS_URL
 const SERVICES = [
-  { name: 'payment-service', url: process.env.PAYMENT_METRICS_URL || 'http://localhost:5005/metrics' },
-  { name: 'auth-service', url: process.env.AUTH_METRICS_URL || 'http://localhost:5001/metrics' },
-  { name: 'order-service', url: process.env.ORDER_METRICS_URL || 'http://localhost:5002/metrics' },
+  { name: 'payment-service', url: 'http://localhost:5004/metrics' },
+  { name: 'auth-service', url: 'http://localhost:5000/metrics' },
+  { name: 'order-service', url: 'http://localhost:5001/metrics' },
 ];
 
 function check(url) {
@@ -26,25 +23,11 @@ function check(url) {
   });
 }
 
-async function retryCheck(url, attempts = 15, delayMs = 2000) {
-  for (let i = 1; i <= attempts; i++) {
-    const r = await check(url);
-    if (r.ok) return r;
-    if (i < attempts) {
-      process.stdout.write(`waiting for ${url} (attempt ${i}/${attempts})... `);
-      await new Promise((res) => setTimeout(res, delayMs));
-      process.stdout.write('retrying\n');
-    } else {
-      return r; // final attempt result (not ok)
-    }
-  }
-}
-
 (async () => {
-  console.log('Checking service /metrics endpoints (localhost) with retries)');
+  console.log('Checking service /metrics endpoints (localhost)');
   let failed = 0;
   for (const s of SERVICES) {
-    const r = await retryCheck(s.url, 15, 2000);
+    const r = await check(s.url);
     if (r.ok) {
       console.log(`OK: ${s.name} (${s.url}) status=${r.statusCode}`);
     } else {

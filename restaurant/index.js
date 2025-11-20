@@ -31,7 +31,7 @@ app.use(express.urlencoded({ extended: false }));
 // Monitoring: register metrics middleware and expose /metrics
 try {
   const require = createRequire(import.meta.url);
-  const monitoring = require('./monitoring/metrics-middleware.cjs');
+  const monitoring = require('../monitoring/metrics-middleware.js');
   app.use(monitoring.metricsMiddleware('restaurant-service'));
   app.get('/metrics', async (req, res) => {
     try {
