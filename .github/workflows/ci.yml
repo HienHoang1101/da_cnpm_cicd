@@ -21,6 +21,14 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Debug integration matrix
+        run: |
+          echo "Matrix package: ${{ toJson(matrix.package) }}"
+          if [ "${{ matrix.package.dir }}" = "__no_integration__" ]; then
+            echo "No integration packages found — skipping integration-tests."
+            exit 0
+          fi
+
       - name: Build package matrix
         id: packages
         shell: bash
