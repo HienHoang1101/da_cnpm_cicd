@@ -1,6 +1,5 @@
-name: Monitoring Smoke Test
-    name: Monitoring /metrics smoke check
-name: Monitoring Smoke Test
+name: Monitoring /metrics smoke check
+
 
 on:
   pull_request:
