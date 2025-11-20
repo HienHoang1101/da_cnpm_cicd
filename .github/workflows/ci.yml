@@ -105,3 +105,106 @@ jobs:
         with:
           name: junit-${{ matrix.package.name }}
           path: ${{ matrix.package.dir }}/junit.xml
+
+  list-integration-packages:
+    name: List packages with integration tests
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.packages.outputs.packages }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build integration package matrix
+        id: packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Finding integration test files..."
+          files=$(git ls-files "**/__tests__/integration/**/*.js" | tr '\n' ' ')
+          echo "Found: $files"
+          arr=()
+          for f in $files; do
+            dir=$(dirname "$(dirname "$f")")
+            pkgjson="$dir/package.json"
+            if [ -f "$pkgjson" ]; then
+              name=$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('$pkgjson','utf8')); console.log(p.name||'$dir')")
+              # prevent duplicates
+              exists=false
+              for item in "${arr[@]:-}"; do
+                if [[ "$item" == "{\"dir\":\"$dir\",\"name\":\"$name\"}" ]]; then
+                  exists=true
+                fi
+              done
+              if [ "$exists" = false ]; then
+                arr+=("{\"dir\":\"$dir\",\"name\":\"$name\"}")
+              fi
+            fi
+          done
+          json="[$(IFS=,; echo "${arr[*]}")]"
+          echo "packages=$json" >> $GITHUB_OUTPUT
+
+  integration-tests:
+    name: Run integration tests (long)
+    needs: list-integration-packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.list-integration-packages.outputs.packages) }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Cache node_modules for integration ${{ matrix.package.dir }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ matrix.package.dir }}/node_modules
+          key: ${{ runner.os }}-node-integ-${{ hashFiles(format('{0}/package.json', matrix.package.dir)) }}
+          restore-keys: |
+            ${{ runner.os }}-node-integ-
+
+      - name: Install dependencies for integration ${{ matrix.package.dir }}
+        working-directory: ${{ matrix.package.dir }}
+        run: |
+          set -e
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Ensure jest-junit available for integration ${{ matrix.package.dir }}
+        working-directory: ${{ matrix.package.dir }}
+        run: |
+          if ! npm ls jest-junit >/dev/null 2>&1; then
+            npm install --no-audit --no-fund --no-save jest-junit || true
+          fi
+
+      - name: Run integration tests for ${{ matrix.package.dir }}
+        working-directory: ${{ matrix.package.dir }}
+        env:
+          JEST_JUNIT_OUTPUT: ${{ matrix.package.dir }}/junit.xml
+        run: |
+          # run only integration tests pattern
+          npx jest "__tests__/integration" --runInBand --reporters=default --reporters=jest-junit --coverage || true
+
+      - name: Upload integration JUnit report for ${{ matrix.package.dir }}
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-junit-${{ matrix.package.name }}
+          path: ${{ matrix.package.dir }}/junit.xml
+
+      - name: Upload integration coverage for ${{ matrix.package.dir }}
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-coverage-${{ matrix.package.name }}
+          path: ${{ matrix.package.dir }}/coverage
