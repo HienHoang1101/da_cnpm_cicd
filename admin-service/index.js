@@ -48,7 +48,7 @@ app.use("/api/settlements", RestaurantSettlement);
 // Monitoring: register metrics middleware and expose /metrics
 try {
   const require = createRequire(import.meta.url);
-  const monitoring = require('../monitoring/metrics-middleware.js');
+  const monitoring = require('./monitoring/metrics-middleware.cjs');
   app.use(monitoring.metricsMiddleware('admin-service'));
   app.get('/metrics', async (req, res) => {
     try {

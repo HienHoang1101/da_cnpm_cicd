@@ -12,7 +12,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 // require CommonJS monitoring module
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const monitoring = require('../monitoring/metrics-middleware.js');
+const monitoring = require('./monitoring/metrics-middleware.cjs');
 const metricsMiddleware = monitoring.metricsMiddleware;
 const client = monitoring.client;
 

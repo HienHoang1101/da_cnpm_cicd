@@ -13,7 +13,7 @@ import userRoutes from "./routes/userRoutes.js";
 // metrics middleware from central monitoring helper (CommonJS module)
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const monitoring = require('../monitoring/metrics-middleware.js');
+const monitoring = require('./monitoring/metrics-middleware.cjs');
 const metricsMiddleware = monitoring.metricsMiddleware;
 const client = monitoring.client;
 app.use(express.json());
