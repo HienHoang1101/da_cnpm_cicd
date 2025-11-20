@@ -27,7 +27,7 @@ export default function ParallaxScrollView({
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollViewOffset(scrollRef);
   const bottom = useBottomTabOverflow();
-  const headerAnimatedStyle = useAnimatedStyle(() => {
+  const headerAnimatedStyle: any = useAnimatedStyle((): any => {
     return {
       transform: [
         {
@@ -41,7 +41,7 @@ export default function ParallaxScrollView({
           scale: interpolate(scrollOffset.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [2, 1, 1]),
         },
       ],
-    };
+    } as any;
   });
 
   return (

@@ -51,9 +51,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const toggleAvailability = async () => {
-    const result = await toggleAvailabilityAPI();
+    const result: any = await toggleAvailabilityAPI();
     setUser((prev) =>
-      prev ? { ...prev, driverIsAvailable: result.isAvailable } : null
+      prev ? { ...prev, driverIsAvailable: result?.isAvailable ?? prev.driverIsAvailable } : null
     );
   };
 
@@ -61,8 +61,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const token = await AsyncStorage.getItem("token");
       if (token) {
-        const currentUser = await api.getCurrentUser();
-        setUser(currentUser);
+        const currentUser: any = await api.getCurrentUser();
+        setUser(currentUser as User);
       }
     } catch (error) {
       console.error("Check auth error:", error);
@@ -72,26 +72,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const refreshUser = async () => {
-    const userData = await api.getCurrentUser();
-    setUser(userData);
+    const userData: any = await api.getCurrentUser();
+    setUser(userData as User);
   };
 
   const login = async (credentials: {
     email: string;
     password: string;
   }): Promise<User> => {
-    const { token, refreshToken, user } = await api.loginUser(credentials);
-    await AsyncStorage.multiSet([
-      ["token", token],
-      ["refreshToken", refreshToken],
-    ]);
-    setUser(user);
-    return user;
+    const resp: any = await api.loginUser(credentials);
+    const { token, refreshToken, user } = resp || {};
+    if (token) {
+      await AsyncStorage.multiSet([
+        ["token", token],
+        ["refreshToken", refreshToken],
+      ]);
+    }
+    setUser(user as User);
+    return user as User;
   };
 
   const updateProfile = async (updates: Partial<User>) => {
-    const updated = await api.updateProfile(updates);
-    setUser(updated.user);
+    const updated: any = await api.updateProfile(updates);
+    setUser((updated && updated.user) as User);
   };
 
   const changePassword = async (data: {
@@ -119,14 +122,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     console.log("HI");
 
-    const { token, refreshToken, user } =
-      await api.updateDeliveryVerification(payload);
-    await AsyncStorage.multiSet([
-      ["token", token],
-      ["refreshToken", refreshToken],
-    ]);
-    setUser(user);
-    return user;
+    const resp: any = await api.updateDeliveryVerification(payload);
+    const { token, refreshToken, user } = resp || {};
+    if (token) {
+      await AsyncStorage.multiSet([
+        ["token", token],
+        ["refreshToken", refreshToken],
+      ]);
+    }
+    setUser(user as User);
+    return user as User;
   };
 
   return (
