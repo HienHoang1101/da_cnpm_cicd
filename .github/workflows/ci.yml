@@ -206,14 +206,14 @@ jobs:
           npx jest "__tests__/integration" --runInBand --reporters=default --reporters=jest-junit --coverage || true
 
       - name: Upload integration JUnit report for ${{ matrix.package.dir }}
-        if: always() && matrix.package.dir != '__no_integration__'
+        if: ${{ always() && matrix.package.dir != '__no_integration__' }}
         uses: actions/upload-artifact@v4
         with:
           name: integration-junit-${{ matrix.package.name }}
           path: ${{ matrix.package.dir }}/junit.xml
 
       - name: Upload integration coverage for ${{ matrix.package.dir }}
-        if: always() && matrix.package.dir != '__no_integration__'
+        if: ${{ always() && matrix.package.dir != '__no_integration__' }}
         uses: actions/upload-artifact@v4
         with:
           name: integration-coverage-${{ matrix.package.name }}
