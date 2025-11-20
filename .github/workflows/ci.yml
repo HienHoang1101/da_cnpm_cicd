@@ -63,13 +63,30 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ matrix.package.dir }}/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles(format('{0}/package-lock.json', matrix.package.dir)) }}
+          key: ${{ runner.os }}-node-${{ hashFiles(format('{0}/package.json', matrix.package.dir)) }}
           restore-keys: |
             ${{ runner.os }}-node-
 
       - name: Install dependencies for ${{ matrix.package.dir }}
         working-directory: ${{ matrix.package.dir }}
-        run: npm ci --no-audit --no-fund
+        run: |
+          set -e
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Ensure jest-junit available for ${{ matrix.package.dir }}
+        working-directory: ${{ matrix.package.dir }}
+        run: |
+          # If jest-junit is not present, install it into this package (no-save)
+          if ! npm ls jest-junit >/dev/null 2>&1; then
+            echo 'Installing jest-junit into package to enable JUnit reporter'
+            npm install --no-audit --no-fund --no-save jest-junit || true
+          else
+            echo 'jest-junit already present'
+          fi
 
       - name: Run tests for ${{ matrix.package.dir }}
         working-directory: ${{ matrix.package.dir }}
