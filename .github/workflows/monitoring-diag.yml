@@ -1,0 +1,35 @@
+name: Monitoring Runner Diagnostics
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  runner-diagnostics:
+    name: Runner diagnostics
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Collect runner Docker info
+        run: |
+          set -eux
+          mkdir -p monitoring/artifacts
+          echo "== uname -a ==" > monitoring/artifacts/runner-diag.txt || true
+          uname -a >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+          echo "\n== df -h ==" >> monitoring/artifacts/runner-diag.txt || true
+          df -h >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+          echo "\n== docker --version ==" >> monitoring/artifacts/runner-diag.txt || true
+          docker --version >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+          echo "\n== docker info ==" >> monitoring/artifacts/runner-diag.txt || true
+          docker info >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+          echo "\n== docker compose version ==" >> monitoring/artifacts/runner-diag.txt || true
+          docker compose version >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+          echo "\n== docker ps (short) ==" >> monitoring/artifacts/runner-diag.txt || true
+          docker ps --format "table {{.Names}}\t{{.Status}}" >> monitoring/artifacts/runner-diag.txt 2>&1 || true
+
+      - name: Upload runner diagnostics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-diag
+          path: monitoring/artifacts/runner-diag.txt
