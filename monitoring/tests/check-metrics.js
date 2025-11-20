@@ -43,8 +43,10 @@ async function retryCheck(url, attempts = 15, delayMs = 2000) {
 (async () => {
   console.log('Checking service /metrics endpoints (localhost) with retries)');
   let failed = 0;
+  const results = [];
   for (const s of SERVICES) {
     const r = await retryCheck(s.url, 15, 2000);
+    results.push(Object.assign({ name: s.name }, r));
     if (r.ok) {
       console.log(`OK: ${s.name} (${s.url}) status=${r.statusCode}`);
     } else {
@@ -52,5 +54,43 @@ async function retryCheck(url, attempts = 15, delayMs = 2000) {
       console.error(`FAIL: ${s.name} (${s.url})`, r.error || `status=${r.statusCode}`);
     }
   }
-  process.exit(failed === 0 ? 0 : 2);
+    // Write artifacts (JSON + JUnit XML) for CI consumption
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const artifactsDir = path.join(__dirname, '..', '..', 'artifacts');
+      if (!fs.existsSync(artifactsDir)) fs.mkdirSync(artifactsDir, { recursive: true });
+      // JSON result
+      fs.writeFileSync(path.join(artifactsDir, 'smoke-result.json'), JSON.stringify({ results }, null, 2));
+      // JUnit XML
+      const failures = results.filter((r) => !r.ok).length;
+      let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+      xml += `<testsuites tests="${results.length}" failures="${failures}">\n`;
+      xml += `  <testsuite name="monitoring-smoke" tests="${results.length}" failures="${failures}">\n`;
+      for (const res of results) {
+        const name = res.name || res.url;
+        xml += `    <testcase classname="monitoring" name="${name}">\n`;
+        if (!res.ok) {
+          const msg = res.error || `status=${res.statusCode}`;
+          xml += `      <failure message="${escapeXml(msg)}"><![CDATA[${msg}]]></failure>\n`;
+        }
+        xml += `    </testcase>\n`;
+      }
+      xml += '  </testsuite>\n';
+      xml += '</testsuites>\n';
+      fs.writeFileSync(path.join(artifactsDir, 'smoke-result.xml'), xml);
+    } catch (err) {
+      console.error('Failed to write artifacts:', err);
+    }
+
+    process.exit(failed === 0 ? 0 : 2);
 })();
+
+  function escapeXml(unsafe) {
+    return String(unsafe)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
