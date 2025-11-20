@@ -1,0 +1,29 @@
+groups:
+  - name: example-alerts
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} down"
+          description: "Prometheus target {{ $labels.job }} ({{ $labels.instance }}) is down."
+
+      - alert: HighErrorRate
+        expr: rate(payment_service_http_requests_total{status_code=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate in payment-service"
+          description: "Payment service has >0.1 5xx errors/s over 5m."
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency"
+          description: "p95 request duration is above 0.5s."
