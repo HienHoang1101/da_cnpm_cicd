@@ -1,4 +1,6 @@
 name: Monitoring Smoke Test
+    name: Monitoring /metrics smoke check
+name: Monitoring Smoke Test
 
 on:
   pull_request:
@@ -9,9 +11,10 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  smoke-test:
+  smoke-check:
+    name: Monitoring /metrics smoke check
     runs-on: ubuntu-latest
-    permissions: {}
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,25 +24,59 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Build and start monitoring stack
+      - name: Start monitoring stack (build + up)
+        env:
+          COMPOSE_DOCKER_CLI_BUILD: 1
+          DOCKER_BUILDKIT: 1
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up --build -d monitoring-mongo auth-service order-service delivery-service payment-service
-          # wait for containers to start
-          sleep 15
+          set -eux
+          # Ensure a local Mongo is available for services
+          if [ -z "$(docker ps -q -f name=monitoring-mongo)" ]; then
+            docker run -d --name monitoring-mongo -p 27017:27017 mongo:5.0 || true
+          else
+            echo "monitoring-mongo already running"
+          fi
 
-      - name: Run smoke test
+          # Build and start services using the compose override
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml build --parallel
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up --pull always -d monitoring-mongo auth-service order-service payment-service delivery-service admin-service || true
+
+          echo "Containers after docker-compose up:"
+          docker ps --format "table {{.Names}}\t{{.Status}}"
+
+      - name: Debug: recent logs
+        run: |
+          set -eux
+          sleep 8
+          docker ps --format "table {{.Names}}\t{{.Status}}"
+          docker logs --tail 200 auth-service || true
+          docker logs --tail 200 order-service || true
+          docker logs --tail 200 payment-service || true
+          docker logs --tail 200 delivery-service || true
+          docker logs --tail 200 admin-service || true
+
+      - name: Install monitoring dependencies
+        run: |
+          set -eux
+          npm ci --prefix ./monitoring || npm install --prefix ./monitoring
+
+      - name: Run metrics smoke-check (outputs to monitoring/artifacts)
         id: smoke
         run: |
-          mkdir -p artifacts
-          node monitoring/tests/check-metrics.js > artifacts/smoke-output.txt 2>&1 || echo "SMOKE_EXIT=$?" > artifacts/smoke-exit.txt
+          set -eux
+          mkdir -p monitoring/artifacts
+          # Run smoke-check and always write output files for artifacts
+          node monitoring/tests/check-metrics.js > monitoring/artifacts/smoke-output.txt 2>&1 || echo "SMOKE_EXIT=$?" > monitoring/artifacts/smoke-exit.txt
 
       - name: Upload smoke artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: monitoring-smoke
-          path: artifacts
+          path: monitoring/artifacts/**
 
       - name: Publish JUnit results to PR checks
+        if: always()
         uses: dorny/test-reporter@v1
         with:
           name: monitoring-smoke
@@ -50,85 +87,16 @@ jobs:
 
       - name: Tear down stack
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml down -v
+        run: |
+          set -eux || true
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml down -v || true
 
       - name: Fail if smoke-test failed
-        if: steps.smoke.outcome != 'success'
+        if: always()
         run: |
-          echo "Smoke test failed; printing output:"; cat artifacts/smoke-output.txt || true; exit 1
-name: Monitoring Smoke Test
-
-on:
-  workflow_dispatch: {}
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-
-jobs:
-  smoke-check:
-    name: Monitoring /metrics smoke check
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Start dependencies (MongoDB) and services (docker-compose)
-        env:
-          COMPOSE_DOCKER_CLI_BUILD: 1
-          DOCKER_BUILDKIT: 1
-        run: |
-          set -eux
-          # Start a local MongoDB for services that need it
-          if [ -z "$(docker ps -q -f name=monitor-mongo)" ]; then
-            docker run -d --name monitor-mongo -p 27017:27017 mongo:5.0 || true
+          if [ -f monitoring/artifacts/smoke-exit.txt ]; then
+            echo "Smoke test reported non-zero exit"; cat monitoring/artifacts/smoke-output.txt || true; exit 1
           else
-            echo "monitor-mongo already running"
+            echo "Smoke test artifacts indicate success (or no explicit exit file)."; cat monitoring/artifacts/smoke-output.txt || true
           fi
 
-          # Build images and bring up key services. These services should tolerate missing external deps or retry.
-          docker-compose build --parallel || true
-          docker-compose up -d auth-service order-service payment-service delivery-service || true
-          echo "Running containers:"
-          docker ps --format "table {{.Names}}\t{{.Status}}"
-
-      - name: Wait for services to start (logs tail)
-        run: |
-          # Give services a bit more time to start and print brief logs for debugging
-          sleep 5
-          docker ps --format "table {{.Names}}\t{{.Status}}"
-          docker logs --tail 50 auth-service || true
-          docker logs --tail 50 order-service || true
-          docker logs --tail 50 payment-service || true
-          docker logs --tail 50 delivery-service || true
-
-      - name: Install Node deps
-        run: |
-          npm ci --prefix ./monitoring || npm install --prefix ./monitoring || true
-
-      - name: Run metrics smoke-check (retry until healthy)
-        run: |
-          set -e
-          n=0
-          until [ $n -ge 30 ]
-          do
-            node monitoring/tests/check-metrics.js && break
-            n=$((n+1))
-            echo "Attempt $n failed — sleeping 5s and retrying"
-            sleep 5
-          done
-
-      - name: Upload smoke test log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: monitoring-smoke-log
-          path: monitoring/tests/**
