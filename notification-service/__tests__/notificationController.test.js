@@ -1,8 +1,36 @@
-import { createNotification, getNotifications, markAsRead } from '../controllers/notificationController.js';
-import Notification from '../models/Notification.js';
+import { jest } from '@jest/globals';
 
-// Mock Notification model
-jest.mock('../models/Notification.js');
+// ESM-compatible testing: mock the Notification module before importing controller
+let createNotification, getNotifications, markAsRead;
+let NotificationMock;
+
+beforeAll(async () => {
+  // Create mock implementations we can reference in tests
+  const mockConstructor = jest.fn();
+  // Attach static methods onto the default export (Mongoose model shape)
+  mockConstructor.find = jest.fn();
+  mockConstructor.findById = jest.fn();
+
+  NotificationMock = {
+    default: mockConstructor,
+  };
+
+  await jest.unstable_mockModule('../models/Notification.js', () => NotificationMock);
+
+  const controllerModule = await import('../controllers/notificationController.js');
+  createNotification = controllerModule.createNotification;
+  getNotifications = controllerModule.getNotifications;
+  markAsRead = controllerModule.markAsRead;
+
+  // Import the mocked model so tests can access and configure its mocks
+  const notifModule = await import('../models/Notification.js');
+  // In ESM mock, default export is the mockConstructor with attached static methods
+  global.NotificationModel = notifModule.default;
+});
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 
 describe('notificationController - createNotification', () => {
   let req, res;
@@ -22,16 +50,16 @@ describe('notificationController - createNotification', () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
     };
-    jest.clearAllMocks();
   });
 
   test('should create notification successfully', async () => {
     const mockNotification = {
       _id: 'notif123',
       ...req.body,
-      save: jest.fn().mockResolvedValue(true),
+      save: jest.fn().mockResolvedValue({ _id: 'notif123', ...req.body }),
     };
-    Notification.mockImplementation(() => mockNotification);
+    // Make constructor return the mock
+    global.NotificationModel.mockImplementation(() => mockNotification);
 
     await createNotification(req, res);
 
@@ -69,7 +97,6 @@ describe('notificationController - getNotifications', () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
     };
-    jest.clearAllMocks();
   });
 
   test('should fetch all notifications', async () => {
@@ -77,7 +104,7 @@ describe('notificationController - getNotifications', () => {
       { _id: '1', type: 'order_update', status: 'unread' },
       { _id: '2', type: 'promo', status: 'read' },
     ];
-    Notification.find = jest.fn().mockReturnValue({
+    global.NotificationModel.find.mockReturnValue({
       sort: jest.fn().mockReturnValue({
         lean: jest.fn().mockResolvedValue(mockNotifications),
       }),
@@ -85,7 +112,7 @@ describe('notificationController - getNotifications', () => {
 
     await getNotifications(req, res);
 
-    expect(Notification.find).toHaveBeenCalledWith({});
+    expect(global.NotificationModel.find).toHaveBeenCalledWith({});
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -105,7 +132,6 @@ describe('notificationController - markAsRead', () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
     };
-    jest.clearAllMocks();
   });
 
   test('should mark notification as read', async () => {
@@ -114,7 +140,7 @@ describe('notificationController - markAsRead', () => {
       status: 'unread',
       save: jest.fn().mockResolvedValue(true),
     };
-    Notification.findById = jest.fn().mockResolvedValue(mockNotification);
+    global.NotificationModel.findById.mockResolvedValue(mockNotification);
 
     await markAsRead(req, res);
 
@@ -130,7 +156,7 @@ describe('notificationController - markAsRead', () => {
   });
 
   test('should return 404 if notification not found', async () => {
-    Notification.findById = jest.fn().mockResolvedValue(null);
+    global.NotificationModel.findById.mockResolvedValue(null);
 
     await markAsRead(req, res);
 
